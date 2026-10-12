@@ -15,6 +15,11 @@ output "ecr_repositories" {
 }
 
 output "github_actions_role_arn" {
-  description = "Put this in GitHub: Settings > Secrets and variables > Actions > Variables > AWS_ROLE_ARN"
-  value       = aws_iam_role.github_actions.arn
+  description = "Only with use_github_oidc = true: GitHub variable AWS_ROLE_ARN"
+  value       = var.use_github_oidc ? aws_iam_role.github_actions[0].arn : null
+}
+
+output "github_actions_user" {
+  description = "Only with use_github_oidc = false: create an access key for this user in IAM and store it as GitHub secrets"
+  value       = var.use_github_oidc ? null : aws_iam_user.github_actions[0].name
 }

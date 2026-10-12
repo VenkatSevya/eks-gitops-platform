@@ -13,11 +13,6 @@ variable "github_repo" {
   type        = string
 }
 
-variable "create_github_oidc_provider" {
-  description = "Set to false if your AWS account already has the GitHub OIDC provider"
-  type        = bool
-  default     = true
-}
 
 variable "node_instance_types" {
   type    = list(string)
@@ -27,4 +22,10 @@ variable "node_instance_types" {
 variable "capacity_type" {
   type    = string
   default = "SPOT"
+}
+
+variable "use_github_oidc" {
+  description = "true = GitHub Actions logs in with OIDC (best). false = an IAM user with access keys, for accounts whose policy blocks creating OIDC providers"
+  type        = bool
+  default     = false
 }

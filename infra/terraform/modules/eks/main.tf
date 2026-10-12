@@ -7,6 +7,10 @@ module "eks" {
   # (versions in extended support cost 6x more per hour).
   cluster_version = var.kubernetes_version
 
+  # IRSA needs an IAM OIDC provider, which this account cannot create.
+  # Pods get AWS access through EKS Pod Identity instead.
+  enable_irsa = false
+
   cluster_endpoint_public_access           = true # so kubectl works from your laptop
   enable_cluster_creator_admin_permissions = true # your IAM identity becomes cluster admin
 
