@@ -8,7 +8,7 @@ Three containerised microservices running on **Amazon EKS**, with infrastructure
 
 ## Results
 
-Built, run and torn down on AWS (eu-north-1) in one day, October 2026:
+Built, run and torn down on AWS (eu-north-1), October 2026:
 
 - A green pipeline built 3 images, **blocked a release over 3 HIGH CVEs** until they were fixed, then pushed to ECR with immutable SHA tags.
 - Argo CD deployed everything from Git; changing `replicas` in Git scaled the API, and manual `kubectl` changes were **reverted automatically** (self-heal).
@@ -35,13 +35,12 @@ More in [docs/screenshots](docs/screenshots).
 | Infrastructure as Code | Terraform with reusable modules, S3 remote state with native locking | Repeatable environments; state is shared and protected from concurrent runs |
 | Network | VPC across 2 AZs, private subnets for nodes, one NAT gateway | Nodes aren't reachable from the internet; one NAT keeps cost down |
 | Kubernetes | Amazon EKS managed node group (Spot), Helm chart | Managed control plane; Spot cuts node cost |
-| CI | GitHub Actions: tests, Gitleaks, SonarQube Cloud (optional), Trivy, push to ECR | Security checks run before any image is published |
-| CI auth | GitHub OIDC → IAM role limited to `main` (switchable); IAM user limited to ECR push where OIDC is blocked | Least privilege either way; see "Problems I hit" |
+| CI | GitHub Actions: Gitleaks, unit tests, Trivy, push to ECR | Security checks run before any image is published |
+| CI auth | IAM user that can only push to the 3 ECR repositories (GitHub OIDC kept as a switchable option) | Least privilege; OIDC was blocked by the account's SCP, see "Problems I hit" |
 | CD | Argo CD with automated sync, prune and self-heal | GitOps: deploys and rollbacks are Git commits |
 | Secrets | AWS Secrets Manager + External Secrets Operator + EKS Pod Identity | No passwords in Git; least-privilege access to one secret |
 | Observability | kube-prometheus-stack, Loki, Grafana Alloy, custom dashboard | Metrics, logs and alerts in one place |
 | Reliability | SLO 99.5% with a multi-window fast-burn alert | Alerts on user impact, not on noise |
-| Alternative CI | `Jenkinsfile` with the same stages | Shows the same pipeline in Jenkins |
 
 ## Repository layout
 
@@ -53,12 +52,12 @@ gitops/argocd/        Argo CD Application
 monitoring/           Prometheus/Grafana, Loki and Alloy values, Grafana dashboard
 .github/workflows/    CI pipeline
 scripts/              local cluster, configure, platform install, load test, cleanup
-docs/                 architecture, run-sheet, RCA, screenshots
+docs/                 architecture, RCA, screenshots
 ```
 
 ## How to run it
 
- In short:
+Order of steps:
 
 ```bash
 docker compose up --build                     # 1. run locally
@@ -74,7 +73,7 @@ terraform -chdir=infra/terraform/envs/dev destroy # 6. tear down
 - **No keys in the cluster:** pods get AWS access through EKS Pod Identity.
 - **CI credentials:** GitHub OIDC where the account allows it (`use_github_oidc = true`); otherwise an IAM user whose only permission is pushing to the three ECR repositories, with its key in GitHub encrypted secrets and deleted after use.
 - **Least privilege:** External Secrets can read only the one database secret.
-- **Pipeline gates:** Gitleaks (secrets in code), Trivy (fixable HIGH/CRITICAL CVEs fail the build), optional SonarQube Cloud (code quality).
+- **Pipeline gates:** Gitleaks (secrets in code) and Trivy (fixable HIGH/CRITICAL CVEs fail the build).
 - **Hardened containers:** non-root users, read-only root filesystems, all Linux capabilities dropped, privilege escalation blocked.
 - **Immutable images:** ECR tags are immutable and set to the Git commit SHA, so every running image traces back to a commit.
 
