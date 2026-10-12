@@ -11,6 +11,3 @@ externalSecret:
 monitoring:
   serviceMonitor: true
   sloRule: true
-
-api:
-  failureRate: "0.3"
