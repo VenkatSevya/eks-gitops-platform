@@ -1,7 +1,7 @@
 # Overrides for EKS. Argo CD uses values.yaml + this file.
-# Run scripts/configure.sh once to replace ACCOUNT_ID with your AWS account ID.
+# Run scripts/configure.sh once to replace 472639329900 with your AWS account ID.
 image:
-  registry: ACCOUNT_ID.dkr.ecr.eu-north-1.amazonaws.com
+  registry: 472639329900.dkr.ecr.eu-north-1.amazonaws.com
   tag: latest   # updated automatically by CI after each build
   pullPolicy: IfNotPresent
 
