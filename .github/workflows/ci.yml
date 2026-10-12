@@ -59,6 +59,7 @@ jobs:
       contents: read
       id-token: write # lets the job request an OIDC token for AWS
     strategy:
+      fail-fast: false
       matrix:
         service: [api, worker, frontend]
     steps:
