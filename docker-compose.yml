@@ -1,0 +1,38 @@
+# Run everything locally: docker compose up --build  ->  http://localhost:8080
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: shop
+      POSTGRES_USER: shop
+      POSTGRES_PASSWORD: shop
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U shop -d shop"]
+      interval: 5s
+      retries: 10
+
+  api:
+    build: ./apps/api
+    environment:
+      DB_HOST: db
+      DB_PASSWORD: shop
+    depends_on:
+      db:
+        condition: service_healthy
+    ports: ["8000:8000"]
+
+  worker:
+    build: ./apps/worker
+    environment:
+      DB_HOST: db
+      DB_PASSWORD: shop
+    depends_on:
+      db:
+        condition: service_healthy
+
+  frontend:
+    build: ./apps/frontend
+    environment:
+      API_URL: http://api:8000
+    depends_on: [api]
+    ports: ["8080:8080"]

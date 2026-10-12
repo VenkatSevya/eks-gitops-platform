@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Shop</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 640px; margin: 40px auto; padding: 0 16px; color: #1a1a1a; }
+    h1 { color: #1f4e79; }
+    form { display: flex; gap: 8px; margin-bottom: 24px; }
+    input, button { padding: 8px; font-size: 15px; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { text-align: left; padding: 6px; border-bottom: 1px solid #ddd; }
+    .new { color: #b45309; } .processed { color: #15803d; }
+    #error { color: #b91c1c; }
+  </style>
+</head>
+<body>
+  <h1>Shop orders</h1>
+  <form id="f">
+    <input id="item" placeholder="Item" required>
+    <input id="qty" type="number" min="1" value="1" style="width:80px">
+    <button>Create order</button>
+  </form>
+  <p id="error"></p>
+  <table>
+    <thead><tr><th>ID</th><th>Item</th><th>Qty</th><th>Status</th></tr></thead>
+    <tbody id="rows"></tbody>
+  </table>
+  <script>
+    const rows = document.getElementById('rows'), err = document.getElementById('error');
+    async function load() {
+      try {
+        const r = await fetch('/api/orders');
+        if (!r.ok) throw new Error('API returned ' + r.status);
+        const data = await r.json();
+        rows.replaceChildren(...data.map(o => {
+          const tr = document.createElement('tr');
+          for (const v of [o.id, o.item, o.quantity, o.status]) {
+            const td = document.createElement('td'); td.textContent = v; tr.appendChild(td);
+          }
+          tr.lastChild.className = o.status;
+          return tr;
+        }));
+        err.textContent = '';
+      } catch (e) { err.textContent = e.message; }
+    }
+    document.getElementById('f').addEventListener('submit', async e => {
+      e.preventDefault();
+      await fetch('/api/orders', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ item: item.value, quantity: Number(qty.value) }) });
+      item.value = ''; load();
+    });
+    load(); setInterval(load, 3000);
+  </script>
+</body>
+</html>

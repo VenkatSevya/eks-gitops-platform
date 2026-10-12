@@ -1,0 +1,113 @@
+name: ci
+
+on:
+  push:
+    branches: [main]
+    paths: ["apps/**", ".github/workflows/ci.yml"]
+  pull_request:
+    paths: ["apps/**"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  AWS_REGION: eu-north-1
+
+jobs:
+  secret-scan:
+    name: Secret scan (Gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  test:
+    name: Unit tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install -r apps/api/requirements-dev.txt
+      - run: pytest -q
+        working-directory: apps/api
+
+  sonarqube:
+    name: Code quality (SonarQube Cloud)
+    runs-on: ubuntu-latest
+    env:
+      SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Scan (skipped until the SONAR_TOKEN secret is set)
+        if: env.SONAR_TOKEN != ''
+        uses: SonarSource/sonarqube-scan-action@v5
+
+  build:
+    name: Build, scan and push ${{ matrix.service }}
+    needs: [secret-scan, test]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # lets the job request an OIDC token for AWS
+    strategy:
+      matrix:
+        service: [api, worker, frontend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build image
+        run: docker build -t shop-${{ matrix.service }}:${{ github.sha }} apps/${{ matrix.service }}
+
+      - name: Trivy image scan (fail on fixable HIGH/CRITICAL)
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0 (pinned to a commit SHA)
+        with:
+          image-ref: shop-${{ matrix.service }}:${{ github.sha }}
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          exit-code: "1"
+
+      - name: Log in to AWS with OIDC (no stored keys)
+        if: github.event_name != 'pull_request'
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Log in to Amazon ECR
+        if: github.event_name != 'pull_request'
+        id: ecr
+        uses: aws-actions/amazon-ecr-login@v2
+
+      - name: Push image
+        if: github.event_name != 'pull_request'
+        run: |
+          IMAGE="${{ steps.ecr.outputs.registry }}/shop-${{ matrix.service }}:${{ github.sha }}"
+          docker tag "shop-${{ matrix.service }}:${{ github.sha }}" "$IMAGE"
+          docker push "$IMAGE"
+
+  update-manifest:
+    name: Update image tag for Argo CD
+    needs: build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Commit the new tag to helm/shop/values-eks.yaml
+        run: |
+          sed -i "s/^  tag: .*/  tag: ${GITHUB_SHA}   # updated automatically by CI/" helm/shop/values-eks.yaml
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add helm/shop/values-eks.yaml
+          git commit -m "chore(deploy): shop images ${GITHUB_SHA::7} [skip ci]"
+          git push

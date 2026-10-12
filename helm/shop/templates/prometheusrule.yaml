@@ -1,0 +1,36 @@
+{{- if .Values.monitoring.sloRule }}
+# SLO: {{ .Values.monitoring.sloTargetPercent }}% of API requests succeed over 30 days.
+# Fast-burn alert: errors at 14.4x the error-budget rate (Google SRE workbook),
+# which would use 2% of a 30-day budget in one hour.
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: shop-slo
+  labels:
+    {{- include "shop.labels" . | nindent 4 }}
+spec:
+  groups:
+    - name: shop-api-slo
+      rules:
+        - record: shop:api_error_ratio:rate5m
+          expr: |
+            sum(rate(http_requests_total{namespace="{{ .Release.Namespace }}", service="api", status="5xx"}[5m]))
+            /
+            sum(rate(http_requests_total{namespace="{{ .Release.Namespace }}", service="api"}[5m]))
+        - record: shop:api_error_ratio:rate1h
+          expr: |
+            sum(rate(http_requests_total{namespace="{{ .Release.Namespace }}", service="api", status="5xx"}[1h]))
+            /
+            sum(rate(http_requests_total{namespace="{{ .Release.Namespace }}", service="api"}[1h]))
+        - alert: ShopApiErrorBudgetFastBurn
+          expr: |
+            shop:api_error_ratio:rate5m > {{ .Values.monitoring.fastBurnThreshold }}
+            and
+            shop:api_error_ratio:rate1h > {{ .Values.monitoring.fastBurnThreshold }}
+          for: 2m
+          labels:
+            severity: critical
+          annotations:
+            summary: Shop API is burning its error budget fast
+            description: Over 7.2% of API requests are failing. Check the latest change in Argo CD and the API logs in Grafana (Loki).
+{{- end }}

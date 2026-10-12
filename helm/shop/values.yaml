@@ -1,0 +1,50 @@
+# Default values = local kind cluster. values-eks.yaml overrides them for AWS.
+
+image:
+  registry: ""          # empty = local images (shop-api:dev); on EKS = your ECR registry
+  tag: dev              # CI sets this to the Git commit SHA in values-eks.yaml
+  pullPolicy: IfNotPresent
+
+api:
+  replicas: 2
+  failureRate: "0"      # 0.3 = 30% of /orders requests fail (used for the RCA exercise)
+  resources:
+    requests: { cpu: 50m, memory: 96Mi }
+    limits: { memory: 256Mi }
+
+worker:
+  replicas: 1
+  pollIntervalSeconds: 5
+  resources:
+    requests: { cpu: 20m, memory: 64Mi }
+    limits: { memory: 128Mi }
+
+frontend:
+  replicas: 2
+  resources:
+    requests: { cpu: 20m, memory: 32Mi }
+    limits: { memory: 64Mi }
+
+postgres:
+  image: postgres:16-alpine
+  resources:
+    requests: { cpu: 50m, memory: 128Mi }
+    limits: { memory: 512Mi }
+
+db:
+  name: shop
+  user: shop
+  # Used ONLY when externalSecret.enabled is false (local testing).
+  # On EKS the password comes from AWS Secrets Manager instead.
+  password: local-dev-only
+
+externalSecret:
+  enabled: false
+  region: eu-north-1
+  remoteSecretName: shop/db   # secret name in AWS Secrets Manager (created by Terraform)
+
+monitoring:
+  serviceMonitor: false   # needs the Prometheus Operator CRDs (kube-prometheus-stack)
+  sloRule: false
+  sloTargetPercent: 99.5      # SLO: 99.5% of API requests succeed (error budget 0.5%)
+  fastBurnThreshold: 0.072    # 14.4 x 0.005: alert when errors burn the budget 14.4x too fast
