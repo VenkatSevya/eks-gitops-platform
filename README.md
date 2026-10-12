@@ -58,7 +58,7 @@ docs/                 architecture, run-sheet, RCA, screenshots
 
 ## How to run it
 
-Step by step: **[docs/RUNSHEET.md](docs/RUNSHEET.md)**. In short:
+ In short:
 
 ```bash
 docker compose up --build                     # 1. run locally
