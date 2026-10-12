@@ -60,6 +60,7 @@ jobs:
       id-token: write # lets the job request an OIDC token for AWS
     strategy:
       fail-fast: false
+      fail-fast: false
       matrix:
         service: [api, worker, frontend]
     steps:
