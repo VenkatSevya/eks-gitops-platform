@@ -6,7 +6,7 @@ image:
   pullPolicy: IfNotPresent
 
 api:
-  replicas: 2
+  replicas: 3
   failureRate: "0"      # 0.3 = 30% of /orders requests fail (used for the RCA exercise)
   resources:
     requests: { cpu: 50m, memory: 96Mi }
