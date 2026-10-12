@@ -61,6 +61,7 @@ jobs:
     strategy:
       fail-fast: false
       fail-fast: false
+      fail-fast: false
       matrix:
         service: [api, worker, frontend]
     steps:
